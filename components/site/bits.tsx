@@ -31,14 +31,16 @@ export function Row({ href, title, meta, children }: { href?: string; title: str
     </>
   )
   if (!href) return <li className="py-2">{body}</li>
+  // Press feedback lands on touch-down; the browser's tap flash is off globally.
+  const cls = "group block py-2.5 transition-opacity duration-150 ease-out active:opacity-60"
   return (
     <li>
       {isExternal(href) ? (
-        <a href={href} target="_blank" rel="noreferrer" className="group block py-2">
+        <a href={href} target="_blank" rel="noreferrer" className={cls}>
           {body}
         </a>
       ) : (
-        <Link href={href} className="group block py-2">
+        <Link href={href} className={cls}>
           {body}
         </Link>
       )}
@@ -72,7 +74,9 @@ export function BookCover({ book, size = "md" }: { book: Book; size?: "sm" | "md
 
 export function Shelf({ books }: { books: Book[] }) {
   return (
-    <div className="-mx-4 flex snap-x scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
+    // Native scroll with mandatory snap: the browser's own fling physics, landing on a cover.
+    // overscroll-x-contain keeps a swipe past the last book from becoming "go back".
+    <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto overscroll-x-contain px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {books.map((b) => (
         <div key={b.title} className="snap-start">
           <BookCover book={b} />

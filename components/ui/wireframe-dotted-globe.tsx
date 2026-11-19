@@ -237,11 +237,25 @@ function paint(
 }
 
 /**
+ * The small viewport height (URL bar showing), which is what the place page's
+ * `min(76svh, 760px)` hero is sized from. innerHeight changes as mobile browser
+ * chrome collapses, so measure the CSS unit directly.
+ */
+function smallViewportHeight() {
+  const probe = document.createElement("div")
+  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none"
+  document.body.appendChild(probe)
+  const h = probe.getBoundingClientRect().height
+  probe.remove()
+  return h || window.innerHeight
+}
+
+/**
  * Where the globe must end up so it lines up with the dusk hero of the place page:
  * same circle, same scale, same orientation.
  */
-function duskTarget(pin: GlobePin, viewportWidth: number, viewportHeight: number) {
-  const h = heroHeight(viewportHeight)
+function duskTarget(pin: GlobePin, viewportWidth: number) {
+  const h = heroHeight(smallViewportHeight())
   const g = duskGeometry(viewportWidth / h)
   const m = focusMatrix(pin.coords, g)
   const cx = g.center[0] * h
@@ -335,27 +349,58 @@ export default function RotatingEarth({
     const facing = (coords: [number, number]) => d3.geoDistance(coords, [-rotation[0], -rotation[1]])
 
     let dragging = false
-    let down: { x: number; y: number; rot: [number, number, number]; id: number } | null = null
+    let down: { x: number; y: number; rot: [number, number, number]; id: number; type: string } | null = null
+    /** Recent drag positions, for the fling velocity on release. */
+    let trail: { x: number; y: number; t: number }[] = []
 
-    // Auto-rotation, paused while interacting
+    // Spin velocity in degrees per ms. A fling sets it; friction eases it toward the
+    // idle drift (or to rest while the visitor is interacting), so the globe coasts
+    // to a stop and the auto-rotation fades back in instead of snapping on.
+    const DRIFT = 0.006
+    const FRICTION_MS = 380
+    let velocity: [number, number] = [reduceMotion ? 0 : DRIFT, 0]
     let autoRotate = !reduceMotion
     let resumeAt = 0
     let last = 0
-    const timer = d3.timer((elapsed) => {
+    const tick = (elapsed: number) => {
       const dt = Math.min(elapsed - last, 50)
       last = elapsed
       if (flying) return
-      if (!autoRotate && !reduceMotion && performance.now() > resumeAt && !dragging) autoRotate = true
-      if (autoRotate) {
-        rotation[0] += dt * 0.006
-        projection.rotate(rotation)
+      if (!dragging) {
+        // A resting finger holds the globe still; drift only returns after letting go.
+        if (!down && !autoRotate && !reduceMotion && performance.now() > resumeAt) autoRotate = true
+        const k = 1 - Math.exp(-dt / FRICTION_MS)
+        velocity[0] += ((autoRotate ? DRIFT : 0) - velocity[0]) * k
+        velocity[1] += (0 - velocity[1]) * k
+        if (Math.abs(velocity[0]) > 1e-5 || Math.abs(velocity[1]) > 1e-5) {
+          rotation[0] += velocity[0] * dt
+          rotation[1] = Math.max(-70, Math.min(70, rotation[1] + velocity[1] * dt))
+          projection.rotate(rotation)
+        }
       }
       render()
-    })
+    }
+    const timer = d3.timer(tick)
 
-    const pinAt = (x: number, y: number) => {
+    // Don't spend a phone's battery spinning a globe nobody can see.
+    let running = true
+    const visibility = new IntersectionObserver(([entry]) => {
+      if (flying) return
+      if (entry.isIntersecting && !running) {
+        last = 0
+        timer.restart(tick)
+        running = true
+      } else if (!entry.isIntersecting && running) {
+        timer.stop()
+        running = false
+      }
+    })
+    visibility.observe(wrap)
+
+    const pinAt = (x: number, y: number, pointerType = "mouse") => {
       let best: GlobePin | null = null
-      let bestD = 22
+      // A fingertip covers far more than a cursor; give touch a ~64px target.
+      let bestD = pointerType === "mouse" ? 22 : 32
       for (const pin of pins) {
         if (facing(pin.coords) > Math.PI / 2) continue
         const p = projection(pin.coords)
@@ -380,11 +425,12 @@ export default function RotatingEarth({
         if (!disposed) onSelectRef.current?.(pin.id)
       }
       if (reduceMotion) return go()
+      if (!running) timer.restart(tick)
 
       const vw = document.documentElement.clientWidth
       const vh = window.innerHeight
       const box = canvas.getBoundingClientRect()
-      const target = duskTarget(pin, vw, vh)
+      const target = duskTarget(pin, vw)
 
       overlay = document.createElement("div")
       overlay.setAttribute("aria-hidden", "true")
@@ -468,11 +514,20 @@ export default function RotatingEarth({
       return { x: e.clientX - box.left, y: e.clientY - box.top }
     }
 
+    const dragScale = () => 0.35 * (radius / projection.scale())
+
     const onDown = (e: PointerEvent) => {
       if (flying || (e.pointerType === "mouse" && e.button !== 0)) return
-      down = { x: e.clientX, y: e.clientY, rot: [...rotation], id: e.pointerId }
+      down = { x: e.clientX, y: e.clientY, rot: [...rotation], id: e.pointerId, type: e.pointerType }
+      trail = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }]
       dragging = false
       autoRotate = false
+      // A finger on the globe catches it, like a hand on a real one.
+      velocity = [0, 0]
+      // Respond on press, not release: the light under the finger swells at once.
+      const { x, y } = local(e)
+      const pin = pinAt(x, y, e.pointerType)
+      if (pin) hovered = pin.id
     }
     const onMove = (e: PointerEvent) => {
       if (flying) return
@@ -481,17 +536,24 @@ export default function RotatingEarth({
         const dy = e.clientY - down.y
         if (!dragging && Math.hypot(dx, dy) > 5) {
           dragging = true
-          canvas.setPointerCapture(e.pointerId)
+          hovered = null
+          // Throws if the pointer already ended (e.g. the browser just took it for a scroll).
+          try {
+            canvas.setPointerCapture(e.pointerId)
+          } catch {}
         }
         if (dragging) {
-          const s = 0.35 * (radius / projection.scale())
+          const s = dragScale()
           rotation[0] = down.rot[0] + dx * s
           rotation[1] = Math.max(-70, Math.min(70, down.rot[1] - dy * s))
           projection.rotate(rotation)
+          trail.push({ x: e.clientX, y: e.clientY, t: e.timeStamp })
+          while (trail.length > 2 && e.timeStamp - trail[0].t > 100) trail.shift()
           render()
         }
         return
       }
+      if (e.pointerType !== "mouse") return
       const { x, y } = local(e)
       const pin = pinAt(x, y)
       hovered = pin?.id ?? null
@@ -505,16 +567,35 @@ export default function RotatingEarth({
       if (!down || e.pointerId !== down.id) return
       if (!dragging) {
         const { x, y } = local(e)
-        const pin = pinAt(x, y)
-        if (pin) flyTo(pin)
+        const pin = pinAt(x, y, down.type)
+        if (pin) {
+          if (down.type !== "mouse") navigator.vibrate?.(8)
+          flyTo(pin)
+        } else hovered = null
+      } else if (!reduceMotion) {
+        // Fling: carry the last ~100ms of drag speed into a coast.
+        const first = trail[0]
+        const lastPoint = trail[trail.length - 1]
+        const span = lastPoint.t - first.t
+        const fresh = e.timeStamp - lastPoint.t < 80
+        if (fresh && span > 0) {
+          const s = dragScale()
+          // Cap the coast at ~170° so a hard flick doesn't send the places out of view.
+          const clamp = (v: number) => Math.max(-0.45, Math.min(0.45, v))
+          velocity = [clamp(((lastPoint.x - first.x) / span) * s), clamp((-(lastPoint.y - first.y) / span) * s)]
+        }
       }
       down = null
       dragging = false
+      trail = []
       resumeAt = performance.now() + 1500
     }
     const onCancel = () => {
+      // The browser took the gesture (a vertical page scroll): let go without flinging.
       down = null
       dragging = false
+      hovered = null
+      trail = []
       resumeAt = performance.now() + 1500
     }
     const onLeave = () => {
@@ -549,6 +630,7 @@ export default function RotatingEarth({
       disposed = true
       timer.stop()
       observer.disconnect()
+      visibility.disconnect()
       canvas.removeEventListener("pointerdown", onDown)
       canvas.removeEventListener("pointermove", onMove)
       canvas.removeEventListener("pointerup", onUp)
@@ -574,7 +656,9 @@ export default function RotatingEarth({
         ref={canvasRef}
         role="img"
         aria-label={`Globe with ${pins.length} places: ${pins.map((p) => p.label).join(", ")}`}
-        className="block touch-pan-y select-none"
+        // Horizontal drags spin the globe; vertical swipes still scroll the page and
+        // two fingers still zoom it.
+        className="block touch-pan-y touch-pinch-zoom select-none [-webkit-touch-callout:none]"
         style={{ cursor: "grab" }}
       />
       {(isLoading || error) && (

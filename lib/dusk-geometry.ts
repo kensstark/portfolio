@@ -12,6 +12,13 @@ export type DuskGeometry = { center: [number, number]; radius: number; low: numb
 /** How far inside the limb (in height units) the focused place sits. */
 export const FOCUS_DEPTH = 0.14
 
+/**
+ * The planet's radius is the scene's width (the desktop look), but never smaller than
+ * this many scene heights. The floor used to be 1.4, which on a portrait phone made the
+ * planet ~2.3 screens wide and its edge nearly straight.
+ */
+const MIN_RADIUS = 1.0
+
 /** Height of the dusk hero on place pages, in CSS pixels. Keep in sync with the page style. */
 export const heroHeight = (viewportHeight: number) => Math.max(420, Math.min(viewportHeight * 0.76, 760))
 
@@ -21,13 +28,18 @@ export function duskGeometry(aspect: number): DuskGeometry {
   const vx = q[0] - p[0]
   const vy = q[1] - p[1]
   const length = Math.hypot(vx, vy)
-  const radius = Math.max(1.4, aspect)
+  const radius = Math.max(MIN_RADIUS, aspect)
   const offset = Math.sqrt(radius * radius - (length * length) / 4)
   const center: [number, number] = [(p[0] + q[0]) / 2 - (vy / length) * offset, (p[1] + q[1]) / 2 + (vx / length) * offset]
-  const low = Math.atan2(p[1] - center[1], p[0] - center[0]) + 0.035
-  const high = Math.atan2(q[1] - center[1], q[0] - center[0]) - 0.035
+  // The renderer keeps every sun angle in (-2π, 0] (pointer input is mapped the same way),
+  // so low ≤ rest ≤ high stays a continuous range. On a tighter, portrait planet the
+  // arc's lower end dips below the centre and atan2 would hand back a positive angle,
+  // flipping the range and pinning the sun to one end.
+  const unwrap = (a: number) => (a > 0 ? a - Math.PI * 2 : a)
+  const low = unwrap(Math.atan2(p[1] - center[1], p[0] - center[0])) + 0.035
+  const high = unwrap(Math.atan2(q[1] - center[1], q[0] - center[0])) - 0.035
   const restingY = 0.4 - center[1]
-  const rest = Math.atan2(restingY, -Math.sqrt(radius * radius - restingY * restingY))
+  const rest = unwrap(Math.atan2(restingY, -Math.sqrt(radius * radius - restingY * restingY)))
   return { center, radius, low, high, rest }
 }
 

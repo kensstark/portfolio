@@ -133,10 +133,24 @@
   html {
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
+    /* No gray flash on tap; every control below gets its own :active state instead. */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
-    -webkit-tap-highlight-color: transparent;
+  }
+  /* Taps fire at once (no double-tap-zoom wait); page pinch-zoom is untouched. */
+  a,
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  /* Controls aren't content: a long press shouldn't select their label or pop a callout. */
+  button,
+  [role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   ::selection {
     background: color-mix(in oklch, var(--dusk) 35%, transparent);

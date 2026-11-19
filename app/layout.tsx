@@ -14,10 +14,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tadiwa Kennedy Vambe",
-  description: "Builder, writer, forward-deployed engineer in the making. A map of where I've been, what I built, wrote and read there.",
+  description: "Creative engineer, forward-deployed. A map of where I've been, and what I built, wrote and read there.",
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Paint edge to edge (the dusk scene runs under the notch); content stays inside the safe area.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fcfcfc" },
     { media: "(prefers-color-scheme: dark)", color: "#0f0f0f" },

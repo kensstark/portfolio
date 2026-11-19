@@ -9,7 +9,12 @@ export default function Writing() {
   const years = [...new Set(posts.map((p) => p.date.slice(0, 4)))]
   return (
     <main className="mx-auto max-w-[620px] px-4 pb-24 pt-16 sm:pt-24">
-      <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← {me.name}</Link>
+      <Link
+        href="/"
+        className="-my-2.5 inline-block py-2.5 text-sm text-muted-foreground transition-[color,opacity] duration-150 ease-out hover:text-foreground active:opacity-60"
+      >
+        ← {me.name}
+      </Link>
       <h1 className="mt-8 font-medium">Writing</h1>
       <p className="text-muted-foreground">
         {posts.length} posts since 2022, on{" "}

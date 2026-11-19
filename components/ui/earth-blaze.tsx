@@ -85,7 +85,7 @@ export function EarthBlaze({
       <canvas ref={canvas} tabIndex={interactive ? 0 : -1} role="img"
         aria-label={label}
         aria-describedby={interactive ? instructions : undefined}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", touchAction: interactive ? "pan-y" : "auto" }} />
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", touchAction: interactive ? "pan-y pinch-zoom" : "auto", WebkitTouchCallout: "none" }} />
       {interactive && <span id={instructions} style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clipPath: "inset(50%)", whiteSpace: "nowrap" }}>
         Move your pointer or drag horizontally to guide the light. Use arrow keys when focused. Hold Space to reveal the land.
         {auroraEnabled && " Hold the pointer or Enter, then release for an aurora."} Press Escape or Home to reset. Reduced motion uses still illumination.
@@ -417,11 +417,19 @@ function createRenderer(canvas: HTMLCanvasElement, fallback: HTMLDivElement, ini
   let outlineRect: [number, number, number, number] = [0, 0, 0, 0];
   let focusPoint: [number, number] = [0, 0];
   // Arriving from the globe: the outline is already lit, so don't sweep it in again.
+  let handoff = false;
   try {
     const at = Number(sessionStorage.getItem("dusk-handoff"));
-    if (at && Date.now() - at < 4000) state.outlineT = 1;
+    handoff = !!at && Date.now() - at < 4000;
+    if (handoff) state.outlineT = 1;
     sessionStorage.removeItem("dusk-handoff");
   } catch {}
+  // The context is opaque (alpha: false), so until the first frame lands the canvas is a
+  // solid black slab over the gradient placeholder. Keep it invisible until then and fade
+  // it in, so a slow phone sees dusk arrive rather than a black box popping into a sky.
+  // From the globe the flying overlay already covers this moment, so show it at once.
+  let shown = handoff;
+  if (!handoff) { canvas.style.opacity = "0"; canvas.style.transition = "opacity 500ms cubic-bezier(0.23, 1, 0.32, 1)"; }
 
   function listen(target: EventTarget, type: string, callback: (event: Event) => void) {
     target.addEventListener(type, callback);
@@ -610,7 +618,11 @@ function createRenderer(canvas: HTMLCanvasElement, fallback: HTMLDivElement, ini
     gl.vertexAttribPointer(starPosition, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribPointer(starTail, 1, gl.FLOAT, false, 20, 16);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
     gl.drawArrays(gl.POINTS, 0, options.starCount * 7); gl.disable(gl.BLEND);
-    canvas.dataset.status = "ready"; fallback.hidden = true;
+    canvas.dataset.status = "ready";
+    if (!shown) {
+      shown = true; canvas.style.opacity = "1";
+      setTimeout(() => { if (canvas.dataset.status === "ready") fallback.hidden = true; }, 520);
+    } else fallback.hidden = true;
     if (!still()) requestFrame();
   }
   function point(event: PointerEvent) {

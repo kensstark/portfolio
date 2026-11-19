@@ -25,10 +25,13 @@ export default function Home() {
 
       <div className="mt-10">
         <HomeGlobe pins={pins} />
-        <ol className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <ol className="mt-1 flex flex-wrap gap-x-4 text-sm">
           {places.map((p, i) => (
             <li key={p.slug}>
-              <Link href={`/places/${p.slug}`} className="text-muted-foreground transition-colors hover:text-foreground">
+              <Link
+                href={`/places/${p.slug}`}
+                className="inline-block py-2.5 text-muted-foreground transition-[color,opacity] duration-150 ease-out hover:text-foreground active:opacity-60"
+              >
                 <span className="mr-1 font-mono text-xs text-dusk">{String(i + 1).padStart(2, "0")}</span>
                 {p.name}
               </Link>
@@ -71,7 +74,10 @@ export default function Home() {
       <Section
         title="Writing"
         aside={
-          <Link href="/writing" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            href="/writing"
+            className="-my-2.5 inline-block py-2.5 text-sm text-muted-foreground transition-[color,opacity] duration-150 ease-out hover:text-foreground active:opacity-60"
+          >
             All {posts.length} →
           </Link>
         }
@@ -101,9 +107,15 @@ export default function Home() {
         <p className="leading-relaxed">{me.now.next}</p>
       </Section>
 
-      <footer className="mt-20 flex gap-4 text-sm text-muted-foreground">
+      <footer className="mt-20 flex flex-wrap gap-x-4 text-sm text-muted-foreground">
         {me.links.map((l) => (
-          <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="hover:text-foreground">
+          <a
+            key={l.href}
+            href={l.href}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block py-2.5 transition-[color,opacity] duration-150 ease-out hover:text-foreground active:opacity-60"
+          >
             {l.label}
           </a>
         ))}

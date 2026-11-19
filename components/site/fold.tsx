@@ -51,7 +51,7 @@ export function Fold({ children, show = 3, label = "more" }: { children: React.R
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="mt-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="mt-1 py-2.5 text-sm text-muted-foreground transition-[color,opacity] duration-150 ease-out hover:text-foreground active:opacity-60"
       >
         {open ? "Show less" : `See ${items.length - show} ${label}`}
       </button>
