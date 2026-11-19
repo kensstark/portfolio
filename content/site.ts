@@ -64,6 +64,7 @@ export const me = {
     { label: "X", href: "https://x.com/tadiwakennedy" },
     { label: "LinkedIn", href: "https://www.linkedin.com/in/tadiwa-kennedy-vambe-0b07bab7" },
     { label: "Instagram", href: "https://www.instagram.com/tadiwavambe/" },
+    { label: "YouTube", href: "https://www.youtube.com/@throughtadiwaseyes" },
     { label: "Email", href: "mailto:tadiwakennedy@gmail.com" },
     { label: "GitHub", href: "https://github.com/kensstark" },
   ],
