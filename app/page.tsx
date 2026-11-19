@@ -1,103 +1,113 @@
-import Image from "next/image";
+import Link from "next/link"
+import { HomeGlobe } from "@/components/site/home-globe"
+import { Fold } from "@/components/site/fold"
+import { Row, Section, Shelf, BookCover, formatDate, postMeta } from "@/components/site/bits"
+import { books, me, outlines, places, posts, projects } from "@/content/site"
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const reading = books.filter((b) => b.status === "reading")
+  const latest = posts[0]
+  const pins = places.map((p) => ({ id: p.slug, label: p.name, coords: p.coords, outline: outlines[p.slug] }))
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
+  return (
+    <main className="mx-auto max-w-[620px] px-4 pb-24 pt-16 sm:pt-24">
+      <header>
+        <h1 className="font-medium">{me.name}</h1>
+        <p className="text-muted-foreground">{me.tagline}</p>
+      </header>
+
+      <div className="mt-8 space-y-4 leading-relaxed">
+        {me.intro.map((p) => (
+          <p key={p}>{p}</p>
+        ))}
+        <blockquote className="border-l-2 border-dusk pl-4 text-muted-foreground">{me.belief}</blockquote>
+      </div>
+
+      <div className="mt-10">
+        <HomeGlobe pins={pins} />
+        <ol className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {places.map((p, i) => (
+            <li key={p.slug}>
+              <Link href={`/places/${p.slug}`} className="text-muted-foreground transition-colors hover:text-foreground">
+                <span className="mr-1 font-mono text-xs text-dusk">{String(i + 1).padStart(2, "0")}</span>
+                {p.name}
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <Section title="Now">
+        <ul className="space-y-3">
+          <li>
+            <span className="text-muted-foreground">Building </span>
+            {me.now.building}
+          </li>
+          <li>
+            <span className="text-muted-foreground">Latest post </span>
+            <a href={latest.href} target="_blank" rel="noreferrer" className="underline decoration-border underline-offset-4 hover:decoration-current">
+              {latest.title}
+            </a>
+            <span className="text-muted-foreground"> · {formatDate(latest.date)}</span>
+          </li>
+          <li>
+            <span className="text-muted-foreground">Reading </span>
+            {reading.map((b, i) => (
+              <span key={b.title}>
+                <em className="not-italic">{b.title}</em>
+                {i < reading.length - 2 ? ", " : i === reading.length - 2 ? " and " : ""}
+              </span>
+            ))}
+            , all at once.
+            <div className="mt-3 flex gap-3">
+              {reading.map((b) => (
+                <BookCover key={b.title} book={b} size="sm" />
+              ))}
+            </div>
+          </li>
+        </ul>
+      </Section>
+
+      <Section
+        title="Writing"
+        aside={
+          <Link href="/writing" className="text-sm text-muted-foreground hover:text-foreground">
+            All {posts.length} →
+          </Link>
+        }
+      >
+        <ul className="-my-2">
+          {posts.slice(0, 6).map((p) => (
+            <Row key={p.href} href={p.href} title={p.title} meta={postMeta(p)} />
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Built">
+        <Fold label="more projects">
+          {projects.map((p) => (
+            <Row key={p.name} href={p.href} title={p.name} meta={p.year}>
+              {p.description}
+            </Row>
+          ))}
+        </Fold>
+      </Section>
+
+      <Section title="Shelf">
+        <Shelf books={books} />
+      </Section>
+
+      <Section title="Next">
+        <p className="leading-relaxed">{me.now.next}</p>
+      </Section>
+
+      <footer className="mt-20 flex gap-4 text-sm text-muted-foreground">
+        {me.links.map((l) => (
+          <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="hover:text-foreground">
+            {l.label}
           </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+        ))}
       </footer>
-    </div>
-  );
+    </main>
+  )
 }
